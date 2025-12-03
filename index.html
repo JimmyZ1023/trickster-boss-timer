@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>時光卡巴拉島 Boss & 夜晚計時器</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏰</text></svg>">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -13,17 +14,15 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Quicksand', 'sans-serif'],
-                    },
+                    fontFamily: { sans: ['Quicksand', 'sans-serif'] },
                     colors: {
                         'lofi-bg': '#FDFCF6',
                         'lofi-sidebar': '#F2EFE5',
                         'lofi-purple': '#B5A0D9',
                         'lofi-text': '#4A4A4A',
                         'discord': '#5865F2',
-                        'night-bg': '#1e293b', // Dark blue for night
-                        'night-accent': '#fbbf24' // Moon yellow
+                        'night-bg': '#1e293b',
+                        'night-accent': '#fbbf24'
                     }
                 }
             }
@@ -38,19 +37,9 @@
         .progress-ring__circle { transition: stroke-dashoffset 0.35s; transform: rotate(-90deg); transform-origin: 50% 50%; }
         .btn-hover:hover { transform: translateY(-2px); filter: brightness(1.05); }
         .btn-hover:active { transform: translateY(0); }
-        
-        /* Night Mode Animations */
-        @keyframes twinkle {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .star-icon { animation: twinkle 2s infinite ease-in-out; }
-        
-        @keyframes flash {
-            0% { background-color: #fee2e2; }
-            50% { background-color: #fca5a5; }
-            100% { background-color: #fee2e2; }
-        }
+        @keyframes flash { 0% { background-color: #fee2e2; } 50% { background-color: #fca5a5; } 100% { background-color: #fee2e2; } }
         .time-up-bg { animation: flash 1s infinite; }
     </style>
 </head>
@@ -67,6 +56,9 @@
             <button onclick="createNewAccount()" class="w-full py-3 bg-white border-2 border-lofi-purple text-lofi-purple font-bold rounded-2xl btn-hover shadow-sm flex items-center justify-center gap-2">
                 <i class="fa-solid fa-plus"></i> 新增帳號
             </button>
+            <button onclick="clearAllData()" class="w-full mt-3 py-2 text-gray-400 hover:text-red-500 text-sm font-bold border border-transparent hover:border-red-200 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-trash-can"></i> 重置所有資料
+            </button>
         </div>
     </aside>
 
@@ -78,7 +70,7 @@
             </div>
             <div class="flex gap-3">
                 <select id="bossSelect" class="px-4 py-2 rounded-xl border-2 border-gray-200 bg-white focus:outline-none focus:border-lofi-purple text-lofi-text font-semibold">
-                    </select>
+                </select>
                 <button onclick="addTimerToCurrentAccount()" class="px-6 py-2 bg-lofi-purple text-white rounded-xl font-bold shadow-md btn-hover">
                     加入清單
                 </button>
@@ -105,10 +97,9 @@
 
     <script>
         // --- Data ---
-        // type: 'normal' is for boss, 'night_cycle' is for the special night clock
         const BOSS_DATA = [
             { name: "夜晚到來鬧鐘 (每小時循環)", minutes: 0, type: 'night_cycle' },
-            { name: "法老護衛", minutes: 20, type: 'normal',image: './Tutankhamen.gif' },
+            { name: "法老護衛", minutes: 20, type: 'normal', image: './Tutankhamen.gif' },
             { name: "古墓守衛", minutes: 20, type: 'normal' },
             { name: "幽靈船長史庫爾", minutes: 20, type: 'normal' },
             { name: "海賊王卡蘭", minutes: 30, type: 'normal' },
@@ -126,7 +117,6 @@
             BOSS_DATA.forEach(boss => {
                 const opt = document.createElement('option');
                 opt.value = boss.minutes;
-                // Distinguish label for clarity
                 opt.text = boss.type === 'night_cycle' ? `🌙 ${boss.name}` : `${boss.name} (${boss.minutes}分鐘)`;
                 opt.dataset.name = boss.name;
                 opt.dataset.type = boss.type;
@@ -139,8 +129,6 @@
                 renderAccounts();
                 renderTimers();
             }
-            
-            // Fast tick for smoother UI, but logic runs per second
             setInterval(tick, 1000);
         }
 
@@ -149,6 +137,13 @@
         function loadData() {
             const saved = localStorage.getItem('caballaTimerDataV2');
             if (saved) appData = JSON.parse(saved);
+        }
+        function clearAllData() {
+            if (confirm("⚠️ 警告：這將會刪除所有帳號和計時器設定，且無法復原。\n\n確定要重置嗎？")) {
+                localStorage.removeItem('caballaTimerDataV2');
+                appData = { accounts: [], activeAccountId: null };
+                location.reload(); 
+            }
         }
 
         // --- Account ---
@@ -188,7 +183,6 @@
 
             const account = appData.accounts.find(acc => acc.id === appData.activeAccountId);
             
-            // Prevent duplicates for Night Cycle in the same account
             if (type === 'night_cycle' && account.timers.some(t => t.type === 'night_cycle')) {
                 return alert("這個帳號已經有夜晚鬧鐘囉！");
             }
@@ -196,12 +190,11 @@
             const newTimer = {
                 id: Date.now() + Math.random(),
                 name: bossName,
-                type: type, // 'normal' or 'night_cycle'
+                type: type,
                 totalSeconds: minutes * 60,
                 remainingSeconds: minutes * 60,
-                status: type === 'night_cycle' ? 'running' : 'idle', // Night clock auto-starts
+                status: type === 'night_cycle' ? 'running' : 'idle',
                 lastTick: Date.now(),
-                // Special fields for night clock
                 isNight: false,
                 nightLabel: '' 
             };
@@ -217,7 +210,6 @@
             if (action === 'delete') {
                 account.timers = account.timers.filter(t => t.id !== timerId);
             } else if (timer.type === 'normal') {
-                // Only normal timers accept start/pause/reset
                 if (action === 'start') {
                     timer.status = 'running';
                     timer.lastTick = Date.now();
@@ -241,45 +233,30 @@
 
             appData.accounts.forEach(acc => {
                 acc.timers.forEach(timer => {
-                    // Logic for Night Cycle Clock
                     if (timer.type === 'night_cycle') {
-                        // Night is 43:00 to 53:00 (exclusive of 53:00 for calculation start)
-                        // Range: 43 <= min < 53
                         const isNightNow = (currentMin >= 43 && currentMin < 53);
                         timer.isNight = isNightNow;
-                        timer.status = 'running'; // Always running
+                        timer.status = 'running';
 
                         if (isNightNow) {
-                            // Counting down to 53:00 (Day start)
-                            // Target: Current Hour:53:00
                             const targetMin = 53;
-                            const diffMins = targetMin - 1 - currentMin; // -1 because we count seconds too
+                            const diffMins = targetMin - 1 - currentMin;
                             const diffSecs = 60 - currentSec;
                             timer.remainingSeconds = (diffMins * 60) + diffSecs;
-                            timer.totalSeconds = 10 * 60; // Night lasts 10 mins
+                            timer.totalSeconds = 10 * 60;
                             timer.nightLabel = "距離白天";
                         } else {
-                            // Counting down to 43:00 (Night start)
-                            let targetMin = 43;
                             let minOffset = 0;
-                            
-                            if (currentMin >= 53) {
-                                // Waiting for next hour's 43
-                                minOffset = (60 - currentMin) + 43 - 1; 
-                            } else {
-                                // Waiting for this hour's 43 (currentMin < 43)
-                                minOffset = 43 - 1 - currentMin;
-                            }
+                            if (currentMin >= 53) minOffset = (60 - currentMin) + 43 - 1; 
+                            else minOffset = 43 - 1 - currentMin;
                             
                             const diffSecs = 60 - currentSec;
                             timer.remainingSeconds = (minOffset * 60) + diffSecs;
-                            timer.totalSeconds = 50 * 60; // Day lasts 50 mins
+                            timer.totalSeconds = 50 * 60;
                             timer.nightLabel = "距離夜晚";
                         }
-                        // Always update render for system clock
                         if (acc.id === appData.activeAccountId) needsRender = true;
                     } 
-                    // Logic for Normal Boss Timer
                     else if (timer.status === 'running') {
                         const delta = Math.floor((now - timer.lastTick) / 1000);
                         if (delta >= 1) {
@@ -295,10 +272,7 @@
                 });
             });
 
-            if (needsRender) {
-                renderTimers();
-                // saveData(); // Optional: Don't save every second to avoid performance hit, rely on manual actions or periodic save
-            }
+            if (needsRender) renderTimers();
         }
 
         // --- Render ---
@@ -326,7 +300,6 @@
         }
 
         function renderTimers() {
-            function renderTimers() {
             const container = document.getElementById('timersContainer');
             const emptyState = document.getElementById('emptyState');
             container.innerHTML = '';
@@ -341,11 +314,8 @@
                 const radius = 56;
                 const circumference = 2 * Math.PI * radius;
                 
-                // ▼▼▼ 新增：尋找圖片的邏輯 ▼▼▼
                 const bossInfo = BOSS_DATA.find(b => b.name === timer.name);
-                // 如果找不到圖片，就用預設的問號圖
                 const imageUrl = (bossInfo && bossInfo.image) ? bossInfo.image : 'https://cdn-icons-png.flaticon.com/512/5726/5726678.png';
-                // ▲▲▲ 新增結束 ▲▲▲
 
                 let strokeColor = 'text-lofi-purple';
                 let cardBg = 'bg-white';
@@ -353,7 +323,6 @@
                 let progress = 0;
                 let showControls = true;
                 
-                // --- STYLE LOGIC ---
                 if (timer.type === 'night_cycle') {
                     showControls = false;
                     progress = timer.totalSeconds > 0 ? (timer.remainingSeconds / timer.totalSeconds) : 0;
@@ -402,7 +371,6 @@
                     `;
                 }
 
-                // ▼▼▼ 注意這裡：HTML 結構已經加入 img 標籤 ▼▼▼
                 card.innerHTML = `
                     <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors">
                         <i class="fa-solid fa-xmark text-xl"></i>
@@ -434,7 +402,3 @@
     </script>
 </body>
 </html>
-
-
-
-
