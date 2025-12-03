@@ -326,6 +326,7 @@
         }
 
         function renderTimers() {
+            function renderTimers() {
             const container = document.getElementById('timersContainer');
             const emptyState = document.getElementById('emptyState');
             container.innerHTML = '';
@@ -340,34 +341,33 @@
                 const radius = 56;
                 const circumference = 2 * Math.PI * radius;
                 
+                // ▼▼▼ 新增：尋找圖片的邏輯 ▼▼▼
+                const bossInfo = BOSS_DATA.find(b => b.name === timer.name);
+                // 如果找不到圖片，就用預設的問號圖
+                const imageUrl = (bossInfo && bossInfo.image) ? bossInfo.image : 'https://cdn-icons-png.flaticon.com/512/5726/5726678.png';
+                // ▲▲▲ 新增結束 ▲▲▲
+
                 let strokeColor = 'text-lofi-purple';
                 let cardBg = 'bg-white';
                 let statusText = '';
                 let progress = 0;
                 let showControls = true;
-                let iconClass = '';
-
+                
                 // --- STYLE LOGIC ---
                 if (timer.type === 'night_cycle') {
-                    // Special styling for Night/Day Clock
-                    showControls = false; // System clock, no user control
+                    showControls = false;
                     progress = timer.totalSeconds > 0 ? (timer.remainingSeconds / timer.totalSeconds) : 0;
                     
                     if (timer.isNight) {
-                        // Night Style
                         cardBg = 'bg-slate-800 text-white border-slate-700 shadow-xl shadow-indigo-500/20';
-                        strokeColor = 'text-night-accent'; // Yellow/Gold
+                        strokeColor = 'text-night-accent';
                         statusText = '✨ 夜晚中 ✨';
-                        iconClass = 'fa-solid fa-moon text-yellow-400 star-icon';
                     } else {
-                        // Day Style
                         cardBg = 'bg-sky-50 text-slate-700 border-sky-100';
                         strokeColor = 'text-sky-400';
                         statusText = '☀️ 白天';
-                        iconClass = 'fa-solid fa-sun text-orange-400';
                     }
                 } else {
-                    // Normal Boss Timer Logic
                     progress = timer.totalSeconds > 0 ? (timer.remainingSeconds / timer.totalSeconds) : 0;
                     if (timer.status === 'finished') {
                         strokeColor = 'text-red-400'; cardBg = 'bg-red-50 time-up-bg'; statusText = 'BOSS 出現!';
@@ -380,7 +380,6 @@
                 const mins = Math.floor(timer.remainingSeconds / 60).toString().padStart(2, '0');
                 const secs = Math.floor(timer.remainingSeconds % 60).toString().padStart(2, '0');
 
-                // --- HTML GENERATION ---
                 const card = document.createElement('div');
                 card.className = `${cardBg} rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center gap-4 relative transition-all duration-500`;
                 
@@ -396,7 +395,6 @@
                         </div>
                     `;
                 } else {
-                    // System Timer Info (No buttons)
                     controlsHtml = `
                         <div class="mt-2 text-center text-sm font-medium opacity-80">
                             ${timer.nightLabel}
@@ -404,15 +402,16 @@
                     `;
                 }
 
+                // ▼▼▼ 注意這裡：HTML 結構已經加入 img 標籤 ▼▼▼
                 card.innerHTML = `
                     <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors">
                         <i class="fa-solid fa-xmark text-xl"></i>
                     </button>
 
-                    <h3 class="text-lg font-bold mt-2 flex items-center gap-2">
-                        ${iconClass ? `<i class="${iconClass}"></i>` : ''} 
-                        ${timer.name}
-                    </h3>
+                    <div class="flex flex-col items-center gap-2 mt-1">
+                        <img src="${imageUrl}" alt="${timer.name}" class="w-16 h-16 object-contain rounded-full bg-white/30 p-1 shadow-sm border border-white/20">
+                        <h3 class="text-lg font-bold text-center leading-tight">${timer.name}</h3>
+                    </div>
                     
                     <div class="relative w-40 h-40 flex items-center justify-center">
                         <svg class="w-full h-full" viewBox="0 0 128 128">
@@ -431,11 +430,11 @@
                 container.appendChild(card);
             });
         }
-
         init();
     </script>
 </body>
 </html>
+
 
 
 
