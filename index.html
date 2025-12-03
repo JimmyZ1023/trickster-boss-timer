@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時光卡巴拉島 Boss 倒數鐘 </title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Nunito"', '"Zen Maru Gothic"', 'sans-serif'],
+                    },
+                    colors: {
+                        lofi: {
+                            bg: '#FDFBF7',       // 米色背景
+                            sidebar: '#F2EFE9',  // 側邊欄淺灰
+                            primary: '#B5A6C9',  // 淡紫色
+                            accent: '#E6C9A8',   // 暖沙色
+                            text: '#4A4A4A',     // 柔和深灰
+                            card: '#FFFFFF',
+                            green: '#A8D5BA',    // 療癒綠
+                            red: '#E8A5A5',      // 柔和紅
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '5px 5px 15px rgba(0, 0, 0, 0.05)',
+                        'inner-soft': 'inset 2px 2px 5px rgba(0,0,0,0.03)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #FDFBF7;
+            color: #4A4A4A;
+        }
+        /* 圓形進度條動畫 */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        /* 滾動條美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 4px;
+        }
+        .timer-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .timer-finished {
+            animation: pulse-glow 2s infinite;
+            border: 2px solid #E8A5A5;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(232, 165, 165, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(232, 165, 165, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(232, 165, 165, 0); }
+        }
+        /* 讓操作按鈕在 hover 時浮現 */
+        .account-item:hover .account-actions {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex overflow-hidden font-sans selection:bg-lofi-primary selection:text-white">
+
+    <div class="w-20 md:w-72 bg-lofi-sidebar flex flex-col border-r border-stone-200 shadow-soft z-10 transition-all duration-300">
+        <div class="p-6 flex items-center justify-center md:justify-start gap-3">
+            <i class="fa-solid fa-clock text-lofi-primary text-2xl"></i>
+            <h1 class="hidden md:block text-xl font-bold tracking-widest text-stone-600">時光卡巴拉島專用</h1>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-3 space-y-2" id="accountList">
+            </div>
+
+        <div class="p-4 border-t border-stone-200">
+            <button onclick="addNewAccount()" class="w-full bg-white text-stone-600 py-3 rounded-2xl shadow-soft hover:shadow-md hover:bg-lofi-accent hover:text-white transition-all duration-300 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden md:inline">新增帳號</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col h-full overflow-hidden bg-lofi-bg relative">
+        <header class="bg-white/80 backdrop-blur-md p-6 shadow-sm border-b border-stone-100 z-10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h2 id="currentAccountTitle" class="text-2xl font-bold text-lofi-text flex items-center gap-2">
+                    帳號：本尊
+                </h2>
+                <p class="text-sm text-stone-400">選擇 Boss 以開始倒數</p>
+            </div>
+            
+            <div class="flex items-center gap-2 bg-stone-100 p-1.5 rounded-full overflow-x-auto max-w-full">
+                <select id="bossSelector" class="bg-transparent text-stone-600 font-bold px-4 py-2 outline-none cursor-pointer">
+                    </select>
+                <button onclick="addTimer()" class="bg-lofi-primary text-white px-6 py-2 rounded-full font-bold shadow-md hover:bg-purple-400 hover:scale-105 active:scale-95 transition-all whitespace-nowrap">
+                    <i class="fa-solid fa-play mr-2"></i>加入倒數
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 md:p-10">
+            <div id="timersContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-20">
+                </div>
+            
+            <div id="emptyState" class="hidden h-full flex flex-col items-center justify-center text-stone-300">
+                <i class="fa-regular fa-hourglass fa-4x mb-4 opacity-50"></i>
+                <p class="text-xl">目前沒有進行中的 Boss</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 資料設定 ---
+        const BOSS_DATA = [
+            { name: "法老護衛", minutes: 20 },
+            { name: "古墓守衛", minutes: 20 },
+            { name: "幽靈船長史庫爾", minutes: 20 },
+            { name: "海賊王卡蘭", minutes: 30 },
+            { name: "天達獅子", minutes: 30 },
+            { name: "冰之女王奧迪娜", minutes: 45 },
+            { name: "索奇", minutes: 45 }, 
+        ];
+
+        // --- 狀態管理 ---
+        let accounts = [
+            { id: 1, name: "本尊", timers: [] },
+            { id: 2, name: "分身 1", timers: [] }
+        ];
+        let activeAccountId = 1;
+        let timerInterval = null;
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderBossOptions();
+            renderAccounts();
+            renderTimers();
+            startGlobalTicker();
+        });
+
+        // --- 渲染 Boss 選項 ---
+        function renderBossOptions() {
+            const selector = document.getElementById('bossSelector');
+            BOSS_DATA.forEach(boss => {
+                const option = document.createElement('option');
+                option.value = boss.minutes;
+                option.text = `${boss.name} (${Math.ceil(boss.minutes)}分)`;
+                option.setAttribute('data-name', boss.name);
+                selector.appendChild(option);
+            });
+        }
+
+        // --- 渲染帳號列表 (已更新：新增操作按鈕) ---
+        function renderAccounts() {
+            const list = document.getElementById('accountList');
+            list.innerHTML = '';
+            
+            accounts.forEach(acc => {
+                const isActive = acc.id === activeAccountId;
+                const activeClass = isActive 
+                    ? 'bg-white text-lofi-primary shadow-soft border-l-4 border-lofi-primary' 
+                    : 'text-stone-500 hover:bg-white/50 hover:text-stone-700';
+
+                const timerCount = acc.timers.filter(t => t.state === 'running').length;
+
+                const item = document.createElement('div');
+                item.className = `account-item group cursor-pointer p-4 rounded-xl transition-all duration-300 flex items-center justify-between ${activeClass}`;
+                
+                // 左側點擊區域 (切換帳號)
+                const infoDiv = document.createElement('div');
+                infoDiv.className = "flex items-center gap-3 flex-1 overflow-hidden";
+                infoDiv.onclick = () => switchAccount(acc.id);
+                infoDiv.innerHTML = `
+                    <div class="w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-lofi-primary' : 'bg-stone-300'}"></div>
+                    <span class="font-bold hidden md:block truncate select-none">${acc.name}</span>
+                    ${timerCount > 0 ? `<span class="hidden md:flex ml-2 text-xs bg-stone-100 text-stone-400 px-2 py-0.5 rounded-full items-center justify-center">${timerCount}</span>` : ''}
+                `;
+
+                // 右側操作按鈕 (修改/刪除) - 預設隱藏，Hover顯示
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = "account-actions opacity-0 transition-opacity duration-200 hidden md:flex gap-1";
+                
+                // 修改按鈕
+                const editBtn = document.createElement('button');
+                editBtn.className = "w-7 h-7 flex items-center justify-center rounded-full hover:bg-stone-200 text-stone-400 hover:text-stone-600 transition-colors";
+                editBtn.innerHTML = '<i class="fa-solid fa-pen text-xs"></i>';
+                editBtn.title = "更改名稱";
+                editBtn.onclick = (e) => {
+                    e.stopPropagation(); // 防止觸發切換帳號
+                    renameAccount(acc.id);
+                };
+
+                // 刪除按鈕
+                const delBtn = document.createElement('button');
+                delBtn.className = "w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-100 text-stone-300 hover:text-red-400 transition-colors";
+                delBtn.innerHTML = '<i class="fa-solid fa-trash text-xs"></i>';
+                delBtn.title = "刪除帳號";
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // 防止觸發切換帳號
+                    deleteAccount(acc.id);
+                };
+
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(delBtn);
+
+                item.appendChild(infoDiv);
+                item.appendChild(actionsDiv);
+                
+                list.appendChild(item);
+            });
+            
+            updateHeaderTitle();
+        }
+
+        function updateHeaderTitle() {
+            const currentAcc = accounts.find(a => a.id === activeAccountId);
+            if(currentAcc) {
+                document.getElementById('currentAccountTitle').innerText = `帳號：${currentAcc.name}`;
+            }
+        }
+
+        function switchAccount(id) {
+            if(activeAccountId === id) return;
+            activeAccountId = id;
+            renderAccounts();
+            renderTimers();
+        }
+
+        function addNewAccount() {
+            const name = prompt("請輸入新帳號名稱：", `分身 ${accounts.length + 1}`);
+            if (name && name.trim()) {
+                const newId = Date.now();
+                accounts.push({ id: newId, name: name.trim(), timers: [] });
+                switchAccount(newId);
+            }
+        }
+
+        // --- 新增：更改帳號名稱 ---
+        function renameAccount(id) {
+            const acc = accounts.find(a => a.id === id);
+            if (!acc) return;
+
+            const newName = prompt("請輸入新的名稱：", acc.name);
+            if (newName && newName.trim()) {
+                acc.name = newName.trim();
+                renderAccounts();
+                if(activeAccountId === id) updateHeaderTitle();
+            }
+        }
+
+        // --- 新增：刪除帳號 ---
+        function deleteAccount(id) {
+            if (accounts.length <= 1) {
+                alert("這是最後一個帳號，無法刪除！");
+                return;
+            }
+
+            const acc = accounts.find(a => a.id === id);
+            if (confirm(`確定要刪除「${acc.name}」嗎？\n此動作將無法復原，該帳號下的倒數也會一併消失。`)) {
+                // 移除帳號
+                accounts = accounts.filter(a => a.id !== id);
+
+                // 如果刪除的是當前正在看的帳號，切換到列表中的第一個
+                if (activeAccountId === id) {
+                    activeAccountId = accounts[0].id;
+                }
+                
+                renderAccounts();
+                renderTimers();
+            }
+        }
+
+        // --- 計時器邏輯 ---
+        function addTimer() {
+            const selector = document.getElementById('bossSelector');
+            const selectedOption = selector.options[selector.selectedIndex];
+            const minutes = parseFloat(selector.value);
+            const bossName = selectedOption.getAttribute('data-name');
+            const totalSeconds = Math.floor(minutes * 60);
+
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            
+            activeAccount.timers.push({
+                id: Date.now(),
+                bossName: bossName,
+                totalSeconds: totalSeconds,
+                remainingSeconds: totalSeconds,
+                state: 'running', 
+                lastTick: Date.now()
+            });
+
+            renderAccounts(); 
+            renderTimers();
+        }
+
+        function deleteTimer(timerId) {
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            activeAccount.timers = activeAccount.timers.filter(t => t.id !== timerId);
+            renderAccounts();
+            renderTimers();
+        }
+
+        function toggleTimer(timerId) {
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            const timer = activeAccount.timers.find(t => t.id === timerId);
+            
+            if (timer.state === 'running') {
+                timer.state = 'paused';
+            } else if (timer.state === 'paused') {
+                timer.state = 'running';
+                timer.lastTick = Date.now();
+            } else if (timer.state === 'finished') {
+                // 重置
+                timer.remainingSeconds = timer.totalSeconds;
+                timer.state = 'running';
+                timer.lastTick = Date.now();
+            }
+            renderTimers();
+            renderAccounts(); // 更新左側計數
+        }
+
+        function resetTimer(timerId) {
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            const timer = activeAccount.timers.find(t => t.id === timerId);
+            timer.remainingSeconds = timer.totalSeconds;
+            timer.state = 'paused';
+            renderTimers();
+            renderAccounts();
+        }
+
+        // --- 全域計時循環 ---
+        function startGlobalTicker() {
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                let needsRender = false;
+                let anyTimerRunning = false;
+
+                accounts.forEach(acc => {
+                    acc.timers.forEach(timer => {
+                        if (timer.state === 'running') {
+                            anyTimerRunning = true;
+                            const delta = (now - timer.lastTick) / 1000;
+                            if (delta >= 1) {
+                                timer.remainingSeconds -= delta;
+                                timer.lastTick = now;
+                                
+                                if (timer.remainingSeconds <= 0) {
+                                    timer.remainingSeconds = 0;
+                                    timer.state = 'finished';
+                                    // 若需要可在此觸發全域音效
+                                }
+                                
+                                if (acc.id === activeAccountId) {
+                                    needsRender = true;
+                                }
+                            }
+                        } else {
+                            timer.lastTick = now;
+                        }
+                    });
+                });
+
+                // 如果有計時器剛結束，或有秒數變動，更新狀態 (包含左側計數器)
+                if (needsRender) {
+                    updateTimerVisuals();
+                    // 偶爾更新一下左側列表的計數狀態 (為了效能不每一幀都整個列表重繪，這裡簡化處理)
+                }
+            }, 100);
+        }
+
+        // --- 渲染主畫面計時器卡片 ---
+        function renderTimers() {
+            const container = document.getElementById('timersContainer');
+            const emptyState = document.getElementById('emptyState');
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            
+            if (!activeAccount || activeAccount.timers.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            container.innerHTML = activeAccount.timers.map(timer => createTimerCardHTML(timer)).join('');
+            updateTimerVisuals();
+        }
+
+        function createTimerCardHTML(timer) {
+            const radius = 55;
+            const circumference = 2 * Math.PI * radius;
+            
+            return `
+                <div id="card-${timer.id}" class="timer-card bg-white rounded-3xl p-6 shadow-soft hover:shadow-lg relative flex flex-col items-center justify-between min-h-[300px] border border-transparent">
+                    <button onclick="deleteTimer(${timer.id})" class="absolute top-4 right-4 text-stone-300 hover:text-red-400 transition-colors">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+
+                    <h3 class="text-xl font-bold text-lofi-text mt-2 mb-4">${timer.bossName}</h3>
+
+                    <div class="relative w-40 h-40 flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="80" cy="80" r="${radius}" stroke="#F3F4F6" stroke-width="8" fill="transparent" />
+                            <circle 
+                                id="progress-${timer.id}"
+                                class="progress-ring__circle"
+                                cx="80" cy="80" r="${radius}" 
+                                stroke="${timer.state === 'finished' ? '#E8A5A5' : '#B5A6C9'}" 
+                                stroke-width="8" 
+                                fill="transparent" 
+                                stroke-dasharray="${circumference} ${circumference}" 
+                                stroke-dashoffset="0"
+                                stroke-linecap="round"
+                            />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="time-${timer.id}" class="text-3xl font-bold text-stone-600 font-mono tracking-wider">00:00</span>
+                            <span id="status-${timer.id}" class="text-xs font-bold mt-1 text-lofi-primary uppercase tracking-widest">Running</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 mt-6 w-full px-4">
+                        <button onclick="toggleTimer(${timer.id})" 
+                            id="btn-toggle-${timer.id}"
+                            class="flex-1 py-2 rounded-xl font-bold transition-all transform hover:scale-105 active:scale-95 shadow-sm
+                            ${timer.state === 'running' 
+                                ? 'bg-stone-100 text-stone-500 hover:bg-stone-200' 
+                                : (timer.state === 'finished' ? 'bg-lofi-accent text-white' : 'bg-lofi-green text-white hover:bg-green-400')}"
+                        >
+                            ${getButtonIcon(timer.state)}
+                        </button>
+                        
+                        <button onclick="resetTimer(${timer.id})" class="w-12 py-2 rounded-xl bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600 transition-all hover:scale-105">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div id="alert-${timer.id}" class="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-3xl flex-col items-center justify-center z-20 hidden">
+                        <span class="text-3xl mb-2">🎉</span>
+                        <h3 class="text-2xl font-bold text-lofi-text">BOSS 出現了！</h3>
+                        <button onclick="toggleTimer(${timer.id})" class="mt-4 bg-lofi-primary text-white px-6 py-2 rounded-full font-bold hover:scale-105 transition-transform">
+                            重新計時
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getButtonIcon(state) {
+            if (state === 'running') return '<i class="fa-solid fa-pause"></i> 暫停';
+            if (state === 'finished') return '<i class="fa-solid fa-check"></i> 完成';
+            return '<i class="fa-solid fa-play"></i> 開始';
+        }
+
+        // --- 輕量化 DOM 更新 ---
+        function updateTimerVisuals() {
+            const activeAccount = accounts.find(a => a.id === activeAccountId);
+            if (!activeAccount) return;
+
+            activeAccount.timers.forEach(timer => {
+                const card = document.getElementById(`card-${timer.id}`);
+                if (!card) return; 
+
+                const minutes = Math.floor(timer.remainingSeconds / 60);
+                const seconds = Math.floor(timer.remainingSeconds % 60);
+                const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                const timeEl = document.getElementById(`time-${timer.id}`);
+                if (timeEl) timeEl.innerText = timeStr;
+
+                const circle = document.getElementById(`progress-${timer.id}`);
+                const radius = 55;
+                const circumference = 2 * Math.PI * radius;
+                const offset = circumference - (timer.remainingSeconds / timer.totalSeconds) * circumference;
+                
+                if (circle) {
+                    circle.style.strokeDashoffset = offset;
+                }
+
+                const statusEl = document.getElementById(`status-${timer.id}`);
+                const toggleBtn = document.getElementById(`btn-toggle-${timer.id}`);
+                
+                if (timer.state === 'running') {
+                    statusEl.innerText = "倒數中";
+                    statusEl.className = "text-xs font-bold mt-1 text-lofi-primary";
+                    circle.style.stroke = "#B5A6C9"; 
+                    toggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i> 暫停';
+                    toggleBtn.className = "flex-1 py-2 rounded-xl font-bold transition-all transform hover:scale-105 active:scale-95 shadow-sm bg-stone-100 text-stone-500 hover:bg-stone-200";
+                    
+                    card.classList.remove('timer-finished');
+                    document.getElementById(`alert-${timer.id}`).classList.add('hidden');
+
+                } else if (timer.state === 'paused') {
+                    statusEl.innerText = "已暫停";
+                    statusEl.className = "text-xs font-bold mt-1 text-stone-400";
+                    toggleBtn.innerHTML = '<i class="fa-solid fa-play"></i> 繼續';
+                    toggleBtn.className = "flex-1 py-2 rounded-xl font-bold transition-all transform hover:scale-105 active:scale-95 shadow-sm bg-lofi-green text-white hover:bg-green-400";
+                    
+                    card.classList.remove('timer-finished');
+                    document.getElementById(`alert-${timer.id}`).classList.add('hidden');
+
+                } else if (timer.state === 'finished') {
+                    statusEl.innerText = "BOSS 生出";
+                    statusEl.className = "text-xs font-bold mt-1 text-red-400";
+                    circle.style.stroke = "#E8A5A5"; 
+                    
+                    card.classList.add('timer-finished');
+                    
+                    const alertBox = document.getElementById(`alert-${timer.id}`);
+                    alertBox.classList.remove('hidden');
+                    alertBox.classList.add('flex');
+                }
+            });
+        }
+    </script>
+<footer class="fixed bottom-0 left-0 right-0 p-3 text-center bg-lofi-sidebar/80 backdrop-blur-sm border-t border-stone-200 z-50">
+        <a href="https://discord.gg/M7CZFccuS2" target="_blank" 
+           class="text-sm font-semibold text-lofi-text hover:text-lofi-primary transition-colors flex items-center justify-center gap-2">
+            <i class="fa-brands fa-discord text-lg"></i>
+            加入時光卡巴拉島社群 (Discord)
+        </a>
+    </footer>
+
+    <script>
+        // ... (原有的 JS 程式碼)
+    </script>
+</body>
+</html>
+</body>
+</html>
