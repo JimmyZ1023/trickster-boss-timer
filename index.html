@@ -41,6 +41,7 @@
         .star-icon { animation: twinkle 2s infinite ease-in-out; }
         @keyframes flash { 0% { background-color: #fee2e2; } 50% { background-color: #fca5a5; } 100% { background-color: #fee2e2; } }
         .time-up-bg { animation: flash 1s infinite; }
+        .balance { text-wrap: balance; }
     </style>
 </head>
 <body class="h-screen w-screen flex overflow-hidden selection:bg-lofi-purple selection:text-white">
@@ -98,7 +99,7 @@
     <script>
         // --- Data ---
         const BOSS_DATA = [
-            { name: "夜晚到來鬧鐘 (每小時循環)", minutes: 0, type: 'night_cycle' },
+            { name: "夜晚到來鬧鐘 (每小時循環)", minutes: 0, type: 'night_cycle', image: './moon.gif' },
             { name: "法老護衛", minutes: 20, type: 'normal', image: './Tutankhamen.gif' },
             { name: "古墓守衛", minutes: 20, type: 'normal', image: './Tombeth.gif' },
             { name: "幽靈船長史庫爾", minutes: 20, type: 'normal', image: './Captain.gif' },
@@ -133,14 +134,14 @@
         }
 
         // --- Persistence ---
-        function saveData() { localStorage.setItem('caballaTimerDataV2', JSON.stringify(appData)); }
+        function saveData() { localStorage.setItem('caballaTimerDataV3', JSON.stringify(appData)); }
         function loadData() {
-            const saved = localStorage.getItem('caballaTimerDataV2');
+            const saved = localStorage.getItem('caballaTimerDataV3');
             if (saved) appData = JSON.parse(saved);
         }
         function clearAllData() {
             if (confirm("⚠️ 警告：這將會刪除所有帳號和計時器設定，且無法復原。\n\n確定要重置嗎？")) {
-                localStorage.removeItem('caballaTimerDataV2');
+                localStorage.removeItem('caballaTimerDataV3');
                 appData = { accounts: [], activeAccountId: null };
                 location.reload(); 
             }
@@ -187,14 +188,17 @@
                 return alert("這個帳號已經有夜晚鬧鐘囉！");
             }
 
+            const now = Date.now();
+            const totalSeconds = minutes * 60;
+
             const newTimer = {
-                id: Date.now() + Math.random(),
+                id: now + Math.random(),
                 name: bossName,
                 type: type,
-                totalSeconds: minutes * 60,
-                remainingSeconds: minutes * 60,
-                status: type === 'night_cycle' ? 'running' : 'idle',
-                lastTick: Date.now(),
+                totalSeconds: totalSeconds,
+                endTime: type === 'normal' ? (now + totalSeconds * 1000) : null, 
+                pausedRemaining: 0, 
+                status: type === 'night_cycle' ? 'running' : 'running', 
                 isNight: false,
                 nightLabel: '' 
             };
@@ -206,18 +210,32 @@
         function controlTimer(timerId, action) {
             const account = appData.accounts.find(acc => acc.id === appData.activeAccountId);
             const timer = account.timers.find(t => t.id === timerId);
+            const now = Date.now();
             
             if (action === 'delete') {
                 account.timers = account.timers.filter(t => t.id !== timerId);
             } else if (timer.type === 'normal') {
                 if (action === 'start') {
+                    // Start or Resume
                     timer.status = 'running';
-                    timer.lastTick = Date.now();
+                    timer.endTime = now + (timer.pausedRemaining * 1000);
                 } else if (action === 'pause') {
+                    // Pause
                     timer.status = 'paused';
+                    if (timer.endTime) {
+                        const remainingMs = timer.endTime - now;
+                        timer.pausedRemaining = Math.max(0, Math.ceil(remainingMs / 1000));
+                    }
+                    timer.endTime = null;
                 } else if (action === 'reset') {
-                    timer.status = 'idle';
-                    timer.remainingSeconds = timer.totalSeconds;
+                    // Reset to idle/initial state
+                    timer.status = 'running';
+                    timer.endTime = now + (timer.totalSeconds * 1000);
+                } else if (action === 'restart') {
+                    // [NEW] Restart from 00:00 manually
+                    timer.status = 'running';
+                    timer.endTime = now + (timer.totalSeconds * 1000);
+                    timer.pausedRemaining = 0;
                 }
             }
             saveData(); renderTimers();
@@ -258,16 +276,22 @@
                         if (acc.id === appData.activeAccountId) needsRender = true;
                     } 
                     else if (timer.status === 'running') {
-                        const delta = Math.floor((now - timer.lastTick) / 1000);
-                        if (delta >= 1) {
-                            timer.remainingSeconds -= delta;
-                            timer.lastTick = now;
-                            if (timer.remainingSeconds <= 0) {
+                        if (timer.endTime) {
+                            const remainingMs = timer.endTime - now;
+                            const remainingSecs = Math.ceil(remainingMs / 1000);
+                            
+                            if (remainingSecs <= 0) {
                                 timer.remainingSeconds = 0;
                                 timer.status = 'finished';
+                                timer.endTime = null; // Clear end time
+                            } else {
+                                timer.remainingSeconds = remainingSecs;
                             }
-                            if (acc.id === appData.activeAccountId) needsRender = true;
                         }
+                        if (acc.id === appData.activeAccountId) needsRender = true;
+                    }
+                    else if (timer.status === 'paused') {
+                        timer.remainingSeconds = timer.pausedRemaining;
                     }
                 });
             });
@@ -358,9 +382,11 @@
                         <div class="flex gap-2 w-full justify-center mt-2">
                             ${timer.status === 'running' 
                                 ? `<button onclick="controlTimer(${timer.id}, 'pause')" class="flex-1 py-2 rounded-xl bg-orange-100 text-orange-600 font-bold hover:bg-orange-200 btn-hover"><i class="fa-solid fa-pause"></i> 暫停</button>`
-                                : `<button onclick="controlTimer(${timer.id}, 'start')" class="flex-1 py-2 rounded-xl bg-green-100 text-green-600 font-bold hover:bg-green-200 btn-hover" ${timer.status === 'finished' ? 'disabled class="opacity-50 cursor-not-allowed"' : ''}><i class="fa-solid fa-play"></i> 開始</button>`
+                                : timer.status === 'finished'
+                                    ? `<button onclick="controlTimer(${timer.id}, 'restart')" class="flex-1 py-2 rounded-xl bg-blue-100 text-blue-600 font-bold hover:bg-blue-200 btn-hover"><i class="fa-solid fa-rotate-right"></i> 重新計時</button>`
+                                    : `<button onclick="controlTimer(${timer.id}, 'start')" class="flex-1 py-2 rounded-xl bg-green-100 text-green-600 font-bold hover:bg-green-200 btn-hover"><i class="fa-solid fa-play"></i> 開始</button>`
                             }
-                            <button onclick="controlTimer(${timer.id}, 'reset')" class="px-4 py-2 rounded-xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200 btn-hover"><i class="fa-solid fa-rotate-right"></i></button>
+                            ${timer.status !== 'finished' ? `<button onclick="controlTimer(${timer.id}, 'reset')" class="px-4 py-2 rounded-xl bg-gray-100 text-gray-500 font-bold hover:bg-gray-200 btn-hover" title="重置"><i class="fa-solid fa-rotate-right"></i></button>` : ''}
                         </div>
                     `;
                 } else {
@@ -372,12 +398,11 @@
                 }
 
                 card.innerHTML = `
-                   <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors z-10">
+                    <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors z-10">
                         <i class="fa-solid fa-xmark text-xl"></i>
                     </button>
 
                     <div class="flex flex-col md:flex-row items-center justify-between w-full gap-6 mt-2 mb-2 px-4">
-                        
                         <div class="flex flex-col items-center justify-center gap-3 flex-shrink-0 md:items-start">
                             <img src="${imageUrl}" alt="${timer.name}" class="w-20 h-20 object-contain rounded-full bg-white/30 p-1 shadow-sm border border-white/20">
                             <h3 class="text-xl font-bold text-center md:text-left leading-tight max-w-[160px] text-wrap balance">${timer.name}</h3>
@@ -395,14 +420,12 @@
                                 <span class="text-xs font-semibold mt-1 opacity-70 uppercase tracking-wide">${statusText}</span>
                             </div>
                         </div>
-
                     </div>
 
                     <div class="w-full mt-auto">
                         ${controlsHtml}
                     </div>
                 `;
-
                 container.appendChild(card);
             });
         }
@@ -410,6 +433,3 @@
     </script>
 </body>
 </html>
-
-
-
