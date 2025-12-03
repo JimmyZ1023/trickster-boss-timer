@@ -372,29 +372,37 @@
                 }
 
                 card.innerHTML = `
-                    <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors">
+                   <button onclick="controlTimer(${timer.id}, 'delete')" class="absolute top-4 right-4 ${timer.type === 'night_cycle' && timer.isNight ? 'text-slate-600 hover:text-white' : 'text-gray-300 hover:text-red-400'} transition-colors z-10">
                         <i class="fa-solid fa-xmark text-xl"></i>
                     </button>
 
-                    <div class="flex flex-col items-center gap-2 mt-1">
-                        <img src="${imageUrl}" alt="${timer.name}" class="w-16 h-16 object-contain rounded-full bg-white/30 p-1 shadow-sm border border-white/20">
-                        <h3 class="text-lg font-bold text-center leading-tight">${timer.name}</h3>
-                    </div>
-                    
-                    <div class="relative w-40 h-40 flex items-center justify-center">
-                        <svg class="w-full h-full" viewBox="0 0 128 128">
-                            <circle class="${timer.type==='night_cycle' && timer.isNight ? 'text-slate-700' : 'text-gray-100'}" stroke-width="8" stroke="currentColor" fill="transparent" r="56" cx="64" cy="64"/>
-                            <circle class="${strokeColor} progress-ring__circle transition-all duration-500" 
-                                stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" 
-                                stroke-linecap="round" stroke="currentColor" fill="transparent" r="56" cx="64" cy="64"/>
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-bold font-mono tracking-tighter">${mins}:${secs}</span>
-                            <span class="text-xs font-semibold mt-1 opacity-70 uppercase tracking-wide">${statusText}</span>
+                    <div class="flex flex-col md:flex-row items-center justify-between w-full gap-6 mt-2 mb-2 px-4">
+                        
+                        <div class="flex flex-col items-center justify-center gap-3 flex-shrink-0 md:items-start">
+                            <img src="${imageUrl}" alt="${timer.name}" class="w-20 h-20 object-contain rounded-full bg-white/30 p-1 shadow-sm border border-white/20">
+                            <h3 class="text-xl font-bold text-center md:text-left leading-tight max-w-[160px] text-wrap balance">${timer.name}</h3>
                         </div>
+                        
+                        <div class="relative w-40 h-40 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-full h-full" viewBox="0 0 128 128">
+                                <circle class="${timer.type==='night_cycle' && timer.isNight ? 'text-slate-700' : 'text-gray-100'}" stroke-width="8" stroke="currentColor" fill="transparent" r="56" cx="64" cy="64"/>
+                                <circle class="${strokeColor} progress-ring__circle transition-all duration-500" 
+                                    stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" 
+                                    stroke-linecap="round" stroke="currentColor" fill="transparent" r="56" cx="64" cy="64"/>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-4xl font-bold font-mono tracking-tighter">${mins}:${secs}</span>
+                                <span class="text-xs font-semibold mt-1 opacity-70 uppercase tracking-wide">${statusText}</span>
+                            </div>
+                        </div>
+
                     </div>
-                    ${controlsHtml}
+
+                    <div class="w-full mt-auto">
+                        ${controlsHtml}
+                    </div>
                 `;
+
                 container.appendChild(card);
             });
         }
@@ -402,5 +410,6 @@
     </script>
 </body>
 </html>
+
 
 
